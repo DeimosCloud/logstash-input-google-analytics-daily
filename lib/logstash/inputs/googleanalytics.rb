@@ -99,7 +99,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
 
       @dates.each do |date|
         options = client_options(date)
-        puts options
+
         results = analytics.get_ga_data(
             options['view_id'],
             options['start-date'],
@@ -137,32 +137,40 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
 
         if results.rows && results.rows.first
 
-          results.rows.each do |row|
-            gaMetrics = []
-            gaDimension = {}
-            # Combine GA column headers with values from row as key-value group
-            column_headers.zip(row).each do |column, value|
-              if is_num(value)
-                float_value = Float(value)
-                # Sometimes GA returns infinity. if so, the number is invalid
-                # so set it to zero.
-                value = (float_value == Float::INFINITY) ? 0.0 : float_value
-              end
+          # Example with dimensions, multiple metrics:
+          # rows: [[Chrome, Cape Town, 6, 8], [Chrome, Paris, 1, 5], [Safari, Paris, 1, 3]], column_headers: ['ga:browser', 'ga:city', 'ga:user', 'ga:sessions']
+          # Example with dimension, single metric:
+          # rows: [[Chrome, 6]], column_headers: ['ga:browser', 'ga:user']
+          # Example with no dimension, single metric:
+          # rows: [[6]], column_headers: ['ga:user']
+          # Dimensions always appear before values
+          results.rows.each_with_index do |row, index|
+            dimensions = []
+            metrics = []
+            column_headers.zip(row) do |header, value|
 
-              if @metrics.include?(column)
-                gaMetrics << {
-                  name: column,
-                  value: value
-                }
-              else
-                gaDimension = {column => value}
-              end
+            # Combine GA column headers with values from row
+
+            if is_num(value)
+              float_value = Float(value)
+              # Sometimes GA returns infinity. if so, the number is invalid
+              # so set it to zero.
+              value = (float_value == Float::INFINITY) ? 0.0 : float_value
             end
 
-            rows << {
-                metrics: gaMetrics,
-                dimension: gaDimension,
-            }
+              entry = {
+                  name: header,
+                  value: value
+              }
+            if @metrics.include?(header)
+              metrics << entry
+            else
+              dimensions << entry
+            end
+
+            end
+
+            rows << { metrics: metrics, dimensions: dimensions}
           end
 
         end
@@ -203,7 +211,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
         'view_id' => @view_id,
         'start-date' => date,
         'end-date' => date,
-        'metrics' => @metrics.join(','),
+        'metrics' => @metrics.sort.join(','),
         'output' => 'json',
     }
     options.merge!({'dimensions' => @dimensions.join(',')}) if @dimensions
