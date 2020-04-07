@@ -51,23 +51,29 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
   # Used to restrict the data returned from your request
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#filters
   config :filters, :validate => :string, :default => nil
+
   # A list of metrics and dimensions indicating the sorting order and sorting direction for the returned data
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#sort
   config :sort, :validate => :string, :default => nil
+
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#segment
   config :segment, :validate => :string, :default => nil
+
   # Valid values are DEFAULT, FASTER, HIGHER_PRECISION
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#samplingLevel
   config :sampling_level, :validate => :string, :default => nil
+
   # This is the result to start with, beginning at 1
   # You probably don't need to change this but it has been included here for completeness
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#startIndex
   config :start_index, :validate => :number, :default => 1
+
   # This is the number of results in a page. This plugin will start at
   # @start_index and keep pulling pages of data until it has all results.
   # You probably don't need to change this but it has been included here for completeness
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#maxResults
   config :max_results, :validate => :number, :default => 10000
+
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#include-empty-rows
   config :include_empty_rows, :validate => :boolean, :default => true
 
@@ -115,20 +121,19 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
             dimensions: options['dimensions'],
         )
 
-        @logger.warn('Result', :data => results)
         if results.rows.first
           query = results.query.to_h
           profile_info = results.profile_info.to_h
           column_headers = results.column_headers.map{|c| c.name}
 
-          results.rows.each do |row|
-            event = LogStash::Event.new
-            decorate(event)
-            # Populate Logstash event fields
-            event.set('ga.contains_sampled_data', results.contains_sampled_data?)
-            event.set('ga.query', query) if @store_query
-            event.set('ga.profile_info', profile_info) if @store_profile
+          event = LogStash::Event.new
+          decorate(event)
+          # Populate Logstash event fields
+          event.set('ga.contains_sampled_data', results.contains_sampled_data?)
+          event.set('ga.query', query) if @store_query
+          event.set('ga.profile_info', profile_info) if @store_profile
 
+          results.rows.each do |row|
             # Combine GA column headers with values from row as key-value group
             column_headers.zip(row).each do |key, value|
               if is_num(value)
