@@ -28,7 +28,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
 
   # This plugin will only fetch reports for the specified dates
   # In the format YYYY-MM-DD, or relative by using today, yesterday, or the NdaysAgo pattern
-  config :dates, :validate => :string, :default => ['yesterday']
+  config :dates, :validate => :string, :list => true, :default => ['yesterday']
 
   # The aggregated statistics for user activity to your site, such as clicks or pageviews.
   # Maximum of 10 metrics for any query
