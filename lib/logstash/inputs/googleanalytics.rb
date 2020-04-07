@@ -108,53 +108,68 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
             dimensions: options['dimensions'],
         )
 
-        if results.rows.first
-          query = results.query.to_h
-          profile_info = results.profile_info.to_h
-          column_headers = results.column_headers.map { |c| c.name }
+        query = results.query.to_h
+        profile_info = results.profile_info.to_h
+        column_headers = results.column_headers.map { |c| c.name }
 
-          event = LogStash::Event.new
-          decorate(event)
-          # Populate Logstash event fields
-          event.set('ga.contains_sampled_data', results.contains_sampled_data?)
-          event.set('ga.query', query) if @store_query
-          event.set('ga.profile_info', profile_info) if @store_profile
+        event = LogStash::Event.new
+        decorate(event)
+        # Populate Logstash event fields
+        event.set('ga.contains_sampled_data', results.contains_sampled_data?)
+        event.set('ga.query', query) if @store_query
+        event.set('ga.profile_info', profile_info) if @store_profile
+
+        if date == 'today'
+          event.set('ga.date', Time.now.strftime("%F"))
+        elsif date == 'yesterday'
+          event.set('ga.date', Time.at(Time.now.to_i - 86400).strftime("%F"))
+        elsif date.include?('daysAgo')
+          days_ago = date.sub('daysAgo', '').to_i
+          event.set('ga.date', Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F"))
+        else
+          event.set('ga.date', date)
+        end
+
+        # Use date and metrics as ID to prevent duplicate entries in Elasticsearch
+        event.set('_id', event.get('ga.date') + options['metrics'])
+
+        rows = []
+
+        if results.rows && results.rows.first
 
           results.rows.each do |row|
+            gaMetrics = []
+            gaDimension = {}
             # Combine GA column headers with values from row as key-value group
-            column_headers.zip(row).each do |key, value|
+            column_headers.zip(row).each do |column, value|
               if is_num(value)
                 float_value = Float(value)
                 # Sometimes GA returns infinity. if so, the number is invalid
                 # so set it to zero.
-                if float_value == Float::INFINITY
-                  event.set(key.gsub(':', '.metrics.'), 0.0)
-                else
-                  event.set(key.gsub(':', '.metrics.'), float_value)
-                end
+                value = (float_value == Float::INFINITY) ? 0.0 : float_value
+              end
+
+              if @metrics.include?(column)
+                gaMetrics << {
+                  name: column,
+                  value: value
+                }
               else
-                event.set(key.gsub(':', '.metrics.'), value)
+                gaDimension = {column => value}
               end
             end
 
-            if date == 'today'
-              event.set('ga.date', Date.parse(Time.now.strftime("%F")))
-            elsif date == 'yesterday'
-              event.set('ga.date', Date.parse(Time.at(Time.now.to_i - 86400).strftime("%F")))
-            elsif date.include?('daysAgo')
-              days_ago = date.sub('daysAgo', '').to_i
-              event.set('ga.date', Date.parse(Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F")))
-            else
-              event.set('ga.date', Date.parse(date))
-            end
-
-            # Use date as ID to prevent duplicate entries in Elasticsearch
-            event.set('_id', event.get('ga.date'))
-
-            puts event.to_hash
-            queue << event
+            rows << {
+                metrics: gaMetrics,
+                dimension: gaDimension,
+            }
           end
+
         end
+        event.set("ga.rows", rows)
+
+        puts event.to_hash
+        queue << event
       end
 
       # If no interval was set, we're done
