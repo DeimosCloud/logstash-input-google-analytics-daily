@@ -80,7 +80,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
 
   # Interval to run the command. Value is in seconds. If no interval is given,
   # this plugin only fetches data once.
-  config :interval, :validate => :number, :required => false
+  config :interval, :validate => :number, :required => false, :default => 60 * 60 * 24 # Daily
 
 
   public
@@ -88,24 +88,27 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
   def register
   end
 
-  # def register
-
   def run(queue)
-    # we can abort the loop if stop? becomes true
+    # we abort the loop if stop? becomes true
     while !stop?
       start_time = Time.now
 
       analytics = get_service
 
       @dates.each do |date|
-        options = client_options(date)
+        options = get_request_parameters(date)
 
         results = analytics.get_ga_data(
-            options['view_id'],
-            options['start-date'],
-            options['end-date'],
-            options['metrics'],
-            dimensions: options['dimensions'],
+            options[:view_id],
+            options[:start_date],
+            options[:end_date],
+            options[:metrics],
+            dimensions: options[:dimensions],
+            filters: options[:filters],
+            include_empty_rows: options[:include_empty_rows],
+            sampling_level: options[:sampling_level],
+            segment: options[:segment],
+            sort: options[:sort],
         )
 
         query = results.query.to_h
@@ -131,7 +134,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
         end
 
         # Use date and metrics as ID to prevent duplicate entries in Elasticsearch
-        event.set('_id', event.get('ga.date') + options['metrics'])
+        event.set('_id', event.get('ga.date') + options[:metrics])
 
         rows = []
 
@@ -144,33 +147,32 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
           # Example with no dimension, single metric:
           # rows: [[6]], column_headers: ['ga:user']
           # Dimensions always appear before values
-          results.rows.each_with_index do |row, index|
+          results.rows.each do |row|
             dimensions = []
             metrics = []
+
             column_headers.zip(row) do |header, value|
-
-            # Combine GA column headers with values from row
-
-            if is_num(value)
-              float_value = Float(value)
-              # Sometimes GA returns infinity. if so, the number is invalid
-              # so set it to zero.
-              value = (float_value == Float::INFINITY) ? 0.0 : float_value
-            end
+              # Combine GA column headers with values from row
+              if is_num(value)
+                float_value = Float(value)
+                # Sometimes GA returns infinity. if so, the number is invalid
+                # so set it to zero.
+                value = (float_value == Float::INFINITY) ? 0.0 : float_value
+              end
 
               entry = {
                   name: header,
                   value: value
               }
-            if @metrics.include?(header)
-              metrics << entry
-            else
-              dimensions << entry
-            end
+              if @metrics.include?(header)
+                metrics << entry
+              else
+                dimensions << entry
+              end
 
             end
 
-            rows << { metrics: metrics, dimensions: dimensions}
+            rows << {metrics: metrics, dimensions: dimensions}
           end
 
         end
@@ -202,24 +204,22 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
     end # loop
   end
 
-  # def run
-
   private
 
-  def client_options(date)
+  def get_request_parameters(date)
     options = {
-        'view_id' => @view_id,
-        'start-date' => date,
-        'end-date' => date,
-        'metrics' => @metrics.sort.join(','),
-        'output' => 'json',
+        :view_id => @view_id,
+        :start_date => date,
+        :end_date => date,
+        :metrics => @metrics.sort.join(','),
+        :output => 'json',
     }
-    options.merge!({'dimensions' => @dimensions.join(',')}) if @dimensions
-    options.merge!({'filters' => @filters}) if @filters
-    options.merge!({'sort' => @sort}) if @sort
-    options.merge!({'segment' => @segment}) if @segment
-    options.merge!({'samplingLevel' => @sampling_level}) if @sampling_level
-    options.merge!({'include-empty-rows' => @include_empty_rows}) if !@include_empty_rows.nil?
+    options.merge!({:dimensions => @dimensions.join(',')}) if @dimensions
+    options.merge!({:filters => @filters}) if @filters
+    options.merge!({:sort => @sort}) if @sort
+    options.merge!({:segment => @segment}) if @segment
+    options.merge!({:sampling_level => @sampling_level}) if @sampling_level
+    options.merge!({:include_empty_rows => @include_empty_rows}) if !@include_empty_rows.nil?
     return options
   end
 
