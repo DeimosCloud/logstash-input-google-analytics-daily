@@ -26,13 +26,9 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#ids
   config :view_id, :validate => :string, :required => true
 
+  # This plugin will only fetch reports for the specified dates
   # In the format YYYY-MM-DD, or relative by using today, yesterday, or the NdaysAgo pattern
-  # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#startDate
-  config :start_date, :validate => :string, :default => 'yesterday'
-
-  # In the format YYYY-MM-DD, or relative by using today, yesterday, or the NdaysAgo pattern
-  # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#endDate
-  config :end_date, :validate => :string, :default => 'yesterday'
+  config :dates, :validate => :string, :default => ['yesterday']
 
   # The aggregated statistics for user activity to your site, such as clicks or pageviews.
   # Maximum of 10 metrics for any query
@@ -63,17 +59,6 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#samplingLevel
   config :sampling_level, :validate => :string, :default => nil
 
-  # This is the result to start with, beginning at 1
-  # You probably don't need to change this but it has been included here for completeness
-  # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#startIndex
-  config :start_index, :validate => :number, :default => 1
-
-  # This is the number of results in a page. This plugin will start at
-  # @start_index and keep pulling pages of data until it has all results.
-  # You probably don't need to change this but it has been included here for completeness
-  # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#maxResults
-  config :max_results, :validate => :number, :default => 10000
-
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#include-empty-rows
   config :include_empty_rows, :validate => :boolean, :default => true
 
@@ -99,8 +84,11 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
 
 
   public
+
   def register
-  end # def register
+  end
+
+  # def register
 
   def run(queue)
     # we can abort the loop if stop? becomes true
@@ -108,10 +96,9 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
       start_time = Time.now
 
       analytics = get_service
-      results_index = @start_index
 
-      while !stop?
-        options = client_options(results_index)
+      @dates.each do |date|
+        options = client_options(date)
         puts options
         results = analytics.get_ga_data(
             options['view_id'],
@@ -124,7 +111,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
         if results.rows.first
           query = results.query.to_h
           profile_info = results.profile_info.to_h
-          column_headers = results.column_headers.map{|c| c.name}
+          column_headers = results.column_headers.map { |c| c.name }
 
           event = LogStash::Event.new
           decorate(event)
@@ -141,47 +128,32 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
                 # Sometimes GA returns infinity. if so, the number is invalid
                 # so set it to zero.
                 if float_value == Float::INFINITY
-                  event.set(key.gsub(':','.metrics.'), 0.0)
+                  event.set(key.gsub(':', '.metrics.'), 0.0)
                 else
-                  event.set(key.gsub(':','.metrics.'), float_value)
+                  event.set(key.gsub(':', '.metrics.'), float_value)
                 end
               else
-                event.set(key.gsub(':','.metrics.'), value)
+                event.set(key.gsub(':', '.metrics.'), value)
               end
             end
 
-            # Try to add a date unless it was already added
-            # %F = YYYY-MM-DD
-            if @start_date == @end_date
-                # if @start_date == 'today'
-                #   event.set('ga_date', Date.parse(Time.now.strftime("%F")))
-                # elsif @start_date == 'yesterday'
-                #   event.set('ga_date', Date.parse(Time.at(Time.now.to_i - 86400).strftime("%F")))
-                # elsif @start_date.include?('daysAgo')
-                #   days_ago = @start_date.sub('daysAgo','').to_i
-                #   event.set('ga_date', Date.parse(Time.at(Time.now.to_i - (days_ago*86400)).strftime("%F")))
-                # else
-                #   event.set('ga_date', Date.parse(@start_date))
-                # end
+            if date == 'today'
+              event.set('ga.date', Date.parse(Time.now.strftime("%F")))
+            elsif date == 'yesterday'
+              event.set('ga.date', Date.parse(Time.at(Time.now.to_i - 86400).strftime("%F")))
+            elsif date.include?('daysAgo')
+              days_ago = date.sub('daysAgo', '').to_i
+              event.set('ga.date', Date.parse(Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F")))
             else
-              # Convert YYYYMMdd to YYYY-MM-dd
-              event.set('ga_date', Date.parse(Time.now.strftime("%F")).to_s)
+              event.set('ga.date', Date.parse(date))
             end
 
             # Use date as ID to prevent duplicate entries in Elasticsearch
-            event.set('_id', event.get('ga_date'))
+            event.set('_id', event.get('ga.date'))
 
             puts event.to_hash
             queue << event
           end
-        end
-
-        # Iterate over all pages of the results before  moving on
-        nextLink = results.next_link rescue nil
-        if nextLink
-          start_index += @max_results
-        else
-          break
         end
       end
 
@@ -205,33 +177,34 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
         end
       end
     end # loop
-  end # def run
+  end
+
+  # def run
 
   private
-  def client_options(results_index)
+
+  def client_options(date)
     options = {
-      'view_id' => @view_id,
-      'start-date' => @start_date,
-      'end-date' => @end_date,
-      'metrics' => @metrics.join(','),
-      'max-results' => @max_results,
-      'output' => 'json',
-      'start-index' => results_index
+        'view_id' => @view_id,
+        'start-date' => date,
+        'end-date' => date,
+        'metrics' => @metrics.join(','),
+        'output' => 'json',
     }
-    options.merge!({ 'dimensions' => @dimensions.join(',') }) if @dimensions
-    options.merge!({ 'filters' => @filters }) if @filters
-    options.merge!({ 'sort' => @sort }) if @sort
-    options.merge!({ 'segment' => @segment }) if @segment
-    options.merge!({ 'samplingLevel' => @sampling_level }) if @sampling_level
-    options.merge!({ 'include-empty-rows' => @include_empty_rows }) if !@include_empty_rows.nil?
+    options.merge!({'dimensions' => @dimensions.join(',')}) if @dimensions
+    options.merge!({'filters' => @filters}) if @filters
+    options.merge!({'sort' => @sort}) if @sort
+    options.merge!({'segment' => @segment}) if @segment
+    options.merge!({'samplingLevel' => @sampling_level}) if @sampling_level
+    options.merge!({'include-empty-rows' => @include_empty_rows}) if !@include_empty_rows.nil?
     return options
   end
 
   def get_service
     scope = 'https://www.googleapis.com/auth/analytics.readonly'
     authorizer = Google::Auth::ServiceAccountCredentials.make_creds(
-      json_key_io: File.open(@key_file_path),
-      scope: scope
+        json_key_io: File.open(@key_file_path),
+        scope: scope
     )
 
     analytics = Google::Apis::AnalyticsV3::AnalyticsService.new
@@ -240,6 +213,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
   end
 
   private
+
   def is_num(a)
     return (Float(a) and true) rescue false
   end
