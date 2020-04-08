@@ -5,12 +5,12 @@ require "stud/interval"
 require 'google/apis/analytics_v3'
 require 'googleauth'
 
-# Generate a repeating message.
-#
-# This plugin is intented only as an example.
+# Pull daily reports from Google Analytics using the v3 Core Reporting API.
+# This plugin will generate one Logstash event per date, with each event containing all the data for that date
+# The plugin will try to maintain a single event per date and metr
 
-class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
-  config_name "googleanalytics"
+class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
+  config_name "google_analytics_daily"
 
   # If undefined, Logstash will complain, even if codec is unused.
   default :codec, "plain"
@@ -20,7 +20,7 @@ class LogStash::Inputs::GoogleAnalytics < LogStash::Inputs::Base
   # Any changes from the format described above have been noted.
 
   # Type for logstash filtering
-  config :type, :validate => :string, :default => 'googleanalytics'
+  config :type, :validate => :string, :default => 'google_analytics_daily'
 
   # View (profile) id, in the format 'ga:XXXX'
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#ids
