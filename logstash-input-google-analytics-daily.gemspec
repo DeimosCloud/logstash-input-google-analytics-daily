@@ -1,12 +1,12 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-input-google-analytics-daily'
-  s.version = '1.0.0'
+  s.version = '0.1.0'
   s.licenses = ['Apache License (2.0)']
   s.summary = "Logstash plugin to pull daily reports from the Google Analytics v3 Core Reporting API."
   s.description = "This gem is a logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/plugin install logstash-input-google-analytics-daily."
   s.authors = ["Shalvah"]
-  s.email = 'hello@shalvah.me'
-  s.homepage = "http://www.elastic.co/guide/en/logstash/current/index.html"
+  s.email = 'shalvah.adebayo@gmail.com'
+  s.homepage = "http://www.elastic.co/guide/en/logstash/current/plugins-inputs-google_analytics_daily.html.html"
   s.require_paths = ["lib"]
 
   # Files
