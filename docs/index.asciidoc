@@ -1,0 +1,189 @@
+:plugin: google_analytics_daily
+:type: input
+:default_codec: plain
+
+///////////////////////////////////////////
+START - GENERATED VARIABLES, DO NOT EDIT!
+///////////////////////////////////////////
+:version: %VERSION%
+:release_date: %RELEASE_DATE%
+:changelog_url: %CHANGELOG_URL%
+:include_path: ../../../../logstash/docs/include
+///////////////////////////////////////////
+END - GENERATED VARIABLES, DO NOT EDIT!
+///////////////////////////////////////////
+
+[id="plugins-{type}s-{plugin}"]
+
+=== Google Analytics Daily input plugin
+
+include::{include_path}/plugin_header.asciidoc[]
+
+==== Description
+
+This input plugin pulls daily reports from Google Analytics using the v3 Core Reporting API.
+
+It will generate one Logstash event per date per metric, with each event containing all the data for that date in its `ga.rows` property.
+
+NOTE: The plugin will try to maintain a single event per date and group of metrics, in order to prevent inaccurate results when creating visualisations due to duplication. To achieve this, the event ID is set to the date plus metric names.
+
+An example input configuration:
+
+[source]
+-----
+input {
+  google_analytics_daily {
+    view_id => "ga:976488984"
+    metrics =>  ["ga:users","ga:sessions"]
+    key_file_path => "/etc/logstash/keyfile.json"
+    dates => ['yesterday', '2020-04-05']
+    dimensions => ['ga:browser', 'ga:city']
+  }
+}
+-----
+
+Here's what the generated event would look like:
+
+[source,json]
+-----
+{
+  "ga.contains_sampled_data": false,
+  "ga.profile_info": {
+    "profile_id":"976488984",
+    "internal_web_property_id":"225478293",
+    "table_id":"ga:213576060",
+    "web_property_id":"UA-160624969-1",
+    "profile_name":"All Web Site Data",
+    "account_id":"160624969"
+},
+"type":"google_analytics_daily",
+"@timestamp": "2020-04-08T11:06:38.281Z",
+"ga.rows": [
+  {
+    "dimensions": [
+      {
+        "name":"ga:browser",
+        "value":"Chrome"
+      },
+      {
+        "name":"ga:city",
+        "value":"Berea"
+      }
+    ],
+    "metrics":[
+      {
+        "name":"ga:sessions",
+        "value":2.0
+      },
+      {
+        "name":"ga:users",
+        "value":1.0
+      }
+    ]
+  }
+],
+"ga.query": {
+  "dimensions":"ga:browser,ga:city",
+  "metrics": ["ga:sessions", "ga:users"],
+  "ids": "ga:213576060",
+  "max_results": 1000,
+  "start_index": 1,
+  "start_date":"yesterday",
+  "end_date":"yesterday"
+},
+"ga.date": "2020-04-07",
+"_id": "2020-04-07ga:sessions,ga:users",
+"@version": "1"
+}
+-----
+
+// Format anchors and links to support generated ids for versioning
+// Sample anchor: [id="plugins-{type}s-{plugin}-setting_name"]
+// Sample link: <<plugins-{type}s-{plugin}-setting_name>>
+
+[id="plugins-{type}s-{plugin}-options"]
+==== Google Analytics Daily Input Configuration Options
+
+Many of these parameters map to the API request parameters described in https://developers.google.com/analytics/devguides/reporting/core/v3/reference[its docs].
+
+[cols="<,<,<",options="header",]
+|=======================================================================
+|Setting |Input type|Required
+| <<plugins-{type}s-{plugin}-view_id>> |<<string,string>>|Yes
+| <<plugins-{type}s-{plugin}-dates>> |<<array,array>>|No
+| <<plugins-{type}s-{plugin}-metrics>> |<<array,array>>|Yes
+| <<plugins-{type}s-{plugin}-dimensions>> |<<array,array>>|No
+| <<plugins-{type}s-{plugin}-key_file_path>> |<<path,path>>|No
+| <<plugins-{type}s-{plugin}-interval>> |<<number,number>>|No
+| <<plugins-{type}s-{plugin}-store_query>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-store_profile>> |<<boolean,boolean>>|No
+|=======================================================================
+
+[id="plugins-{type}s-{plugin}-view_id"]
+===== `view_id`
+
+  * Value type is <<string,string>>
+
+View (profile) id, in the format 'ga:XXXX'.
+
+[id="plugins-{type}s-{plugin}-dates"]
+===== `dates`
+
+  * Value type is <<array,array>>
+  * Default value is `["yesterday"]`
+
+List of dates to fetch reports for. Each date should be in the format YYYY-MM-DD, or a "today", "yesterday", or the NdaysAgo pattern (example: "5daysAgo").
+
+[id="plugins-{type}s-{plugin}-metrics"]
+===== `metrics`
+
+  * Value type is <<array,array>>
+
+The aggregated statistics for user activity to your site, such as sessions (`"ga:sessions"`) or users (`"ga:users"`). You can only request up to 10 metrics in one input. For a full list of metrics, see https://developers.google.com/analytics/devguides/reporting/core/dimsmets[the documentation].
+
+[id="plugins-{type}s-{plugin}-dimensions"]
+===== `dimensions`
+
+  * Value type is <<array,array>>
+  * Default value is `[]`
+
+Criteria to break down metrics by.  For a full list of dimensions, see https://developers.google.com/analytics/devguides/reporting/core/dimsmets[the documentation].
+
+[id="plugins-{type}s-{plugin}-key_file_path"]
+===== `key_file_path`
+
+  * Value type is <<path,path>>
+
+Path to a service account JSON key file. The service account must belong to a GCP project with the Analytics API enabled and must have been https://developers.google.com/analytics/devguides/reporting/core/v4/quickstart/service-php[added to the Analytics project].
+
+[id="plugins-{type}s-{plugin}-interval"]
+===== `interval`
+
+  * Value type is <<number,number>>
+  * Default value is 86400 (24 hours)
+
+Interval in seconds at which to pull reports.
+
+[id="plugins-{type}s-{plugin}-store_query"]
+===== `store_query`
+
+  * Value type is <<boolean,boolean>>
+  * Default value is true
+
+Whether to include the query sent to the API in a `ga.query` field on the resulting event.
+
+[id="plugins-{type}s-{plugin}-store_profile"]
+===== `store_profile`
+
+  * Value type is <<boolean,boolean>>
+  * Default value is true
+
+Whether to include the Google Analytics profile information in a `ga.profile_info` field on the resulting event.
+
+// The full list of Value Types is here: 
+// https://www.elastic.co/guide/en/logstash/current/configuration-file-structure.html
+
+[id="plugins-{type}s-{plugin}-common-options"]
+include::{include_path}/{type}.asciidoc[]
+
+:default_codec!:

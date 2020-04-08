@@ -7,7 +7,7 @@ require 'googleauth'
 
 # Pull daily reports from Google Analytics using the v3 Core Reporting API.
 # This plugin will generate one Logstash event per date, with each event containing all the data for that date
-# The plugin will try to maintain a single event per date and metr
+# The plugin will try to maintain a single event per date and list of metrics
 
 class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
   config_name "google_analytics_daily"
@@ -42,7 +42,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#dimensions
   # For a full list of dimensions, see the documentation
   # https://developers.google.com/analytics/devguides/reporting/core/dimsmets
-  config :dimensions, :validate => :string, :list => true, :default => nil
+  config :dimensions, :validate => :string, :list => true, :default => []
 
   # Used to restrict the data returned from your request
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#filters
@@ -178,7 +178,6 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         end
         event.set("ga.rows", rows)
 
-        puts event.to_hash
         queue << event
       end
 
@@ -214,7 +213,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         :metrics => @metrics.sort.join(','),
         :output => 'json',
     }
-    options.merge!({:dimensions => @dimensions.join(',')}) if @dimensions
+    options.merge!({:dimensions => @dimensions.join(',')}) if (@dimensions and @dimensions.size?)
     options.merge!({:filters => @filters}) if @filters
     options.merge!({:sort => @sort}) if @sort
     options.merge!({:segment => @segment}) if @segment
