@@ -1,9 +1,9 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-input-google-analytics-daily'
-  s.version = '0.1.0'
+  s.version = '0.1.2'
   s.licenses = ['Apache License (2.0)']
-  s.summary = "Logstash plugin to pull daily reports from the Google Analytics v3 Core Reporting API."
-  s.description = "This gem is a logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/plugin install logstash-input-google-analytics-daily."
+  s.summary = "Logstash plugin to pull daily reports from Google Analytics."
+  s.description = "Logstash plugin to pull daily reports from the Google Analytics v3 Core Reporting API. Install into Logstash using $LS_HOME/bin/logstash-plugin install logstash-input-google-analytics-daily."
   s.authors = ["Shalvah"]
   s.email = 'shalvah.adebayo@gmail.com'
   s.homepage = "http://www.elastic.co/guide/en/logstash/current/plugins-inputs-google_analytics_daily.html.html"
@@ -20,8 +20,8 @@ Gem::Specification.new do |s|
   # Gem dependencies
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 2.0.0", "< 3.0.0"
   s.add_runtime_dependency 'stud', '>= 0.0.22'
-  s.add_runtime_dependency 'google-api-client', "0.37"
-  s.add_runtime_dependency 'googleauth'
+  s.add_runtime_dependency 'google-api-client', "~>0.37"
+  s.add_runtime_dependency 'googleauth', "~>0.11"
   s.add_development_dependency 'vcr'
   s.add_development_dependency 'webmock'
   s.add_development_dependency 'json'
