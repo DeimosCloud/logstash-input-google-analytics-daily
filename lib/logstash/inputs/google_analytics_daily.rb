@@ -213,7 +213,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         :metrics => @metrics.sort.join(','),
         :output => 'json',
     }
-    options.merge!({:dimensions => @dimensions.join(',')}) if (@dimensions and @dimensions.size?)
+    options.merge!({:dimensions => @dimensions.join(',')}) if (@dimensions and @dimensions.size)
     options.merge!({:filters => @filters}) if @filters
     options.merge!({:sort => @sort}) if @sort
     options.merge!({:segment => @segment}) if @segment
