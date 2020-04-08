@@ -25,7 +25,7 @@ This input plugin pulls daily reports from Google Analytics using the v3 Core Re
 
 It will generate one Logstash event per date per metric, with each event containing all the data for that date in its `ga.rows` property.
 
-NOTE: The plugin will try to maintain a single event per date and group of metrics, in order to prevent inaccurate results when creating visualisations due to duplication. To achieve this, the event ID is set to the date plus metric names.
+NOTE: The plugin will try to maintain a single event per date and group of metrics, in order to prevent inaccurate results when creating visualisations due to duplication. To achieve this, the event field `[@metadata][id]` is set to the date plus metric names. You'll need to add the https://www.elastic.co/guide/en/logstash/current/plugins-outputs-elasticsearch.html#plugins-outputs-elasticsearch-document_id[`document_id`] option in your Elasticsearch output to `"%{[@metadata][id]}"` to make use of this.
 
 An example input configuration:
 
@@ -92,7 +92,7 @@ Here's what the generated event would look like:
   "end_date":"yesterday"
 },
 "ga.date": "2020-04-07",
-"_id": "2020-04-07ga:sessions,ga:users",
+"[@metadata][id]": "2020-04-07ga:sessions,ga:users",
 "@version": "1"
 }
 -----

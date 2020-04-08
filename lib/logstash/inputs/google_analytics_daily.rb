@@ -120,6 +120,10 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         # Populate Logstash event fields
         event.set('ga.contains_sampled_data', results.contains_sampled_data?)
         event.set('ga.query', query) if @store_query
+        # We need to convert the date fields here to string because sometimes it's a relative date, so will cause mapping issues
+        event.set('ga.query.start_date', query["start_date"].to_s) if @store_query
+        event.set('ga.query.end_date', query["end_date"].to_s) if @store_query
+
         event.set('ga.profile_info', profile_info) if @store_profile
 
         if date == 'today'
@@ -134,7 +138,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         end
 
         # Use date and metrics as ID to prevent duplicate entries in Elasticsearch
-        event.set('_id', event.get('ga.date') + options[:metrics])
+        event.set('[@metadata][id]', event.get('ga.date') + options[:metrics])
 
         rows = []
 
