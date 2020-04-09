@@ -51,8 +51,8 @@ Here's what the generated event would look like:
   "ga.profile_info": {
     "profile_id":"976488984",
     "internal_web_property_id":"225478293",
-    "table_id":"ga:213576060",
-    "web_property_id":"UA-160624969-1",
+    "table_id":"ga:976488984",
+    "web_property_id":"UA-65488983-1",
     "profile_name":"All Web Site Data",
     "account_id":"160624969"
 },
@@ -70,27 +70,13 @@ Here's what the generated event would look like:
         "value":"Berea"
       }
     ],
-    "metrics":[
-      {
-        "name":"ga:sessions",
-        "value":2.0
-      },
-      {
+    "metric": {
         "name":"ga:users",
         "value":1.0
       }
-    ]
   }
 ],
-"ga.query": {
-  "dimensions":"ga:browser,ga:city",
-  "metrics": ["ga:sessions", "ga:users"],
-  "ids": "ga:213576060",
-  "max_results": 1000,
-  "start_index": 1,
-  "start_date":"yesterday",
-  "end_date":"yesterday"
-},
+"ga.query": "{\"metrics\":[\"ga:users\",\"ga:sessions\"],\"dimensions\":\"ga:browser,ga:city\",\"ids\":\"ga:976488984\",\"max_results\":1000,\"start_date\":\"2020-04-06\",\"end_date\":\"2020-04-06\",\"start_index\":1}",
 "ga.date": "2020-04-07",
 "[@metadata][id]": "2020-04-07ga:sessions,ga:users",
 "@version": "1"

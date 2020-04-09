@@ -4,6 +4,7 @@ require "logstash/namespace"
 require "stud/interval"
 require 'google/apis/analytics_v3'
 require 'googleauth'
+require 'json'
 
 # Pull daily reports from Google Analytics using the v3 Core Reporting API.
 # This plugin will generate one Logstash event per date, with each event containing all the data for that date
@@ -111,34 +112,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
             sort: options[:sort],
         )
 
-        query = results.query.to_h
-        profile_info = results.profile_info.to_h
-        column_headers = results.column_headers.map { |c| c.name }
-
-        event = LogStash::Event.new
-        decorate(event)
-        # Populate Logstash event fields
-        event.set('ga.contains_sampled_data', results.contains_sampled_data?)
-        event.set('ga.query', query) if @store_query
-        # We need to convert the date fields here to string because sometimes it's a relative date, so will cause mapping issues
-        event.set('ga.query.start_date', query["start_date"].to_s) if @store_query
-        event.set('ga.query.end_date', query["end_date"].to_s) if @store_query
-
-        event.set('ga.profile_info', profile_info) if @store_profile
-
-        if date == 'today'
-          event.set('ga.date', Time.now.strftime("%F"))
-        elsif date == 'yesterday'
-          event.set('ga.date', Time.at(Time.now.to_i - 86400).strftime("%F"))
-        elsif date.include?('daysAgo')
-          days_ago = date.sub('daysAgo', '').to_i
-          event.set('ga.date', Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F"))
-        else
-          event.set('ga.date', date)
-        end
-
-        # Use date and metrics as ID to prevent duplicate entries in Elasticsearch
-        event.set('[@metadata][id]', event.get('ga.date') + options[:metrics])
+        column_headers = results.column_headers.map &:name
 
         rows = []
 
@@ -179,10 +153,44 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
             rows << {metrics: metrics, dimensions: dimensions}
           end
 
-        end
-        event.set("ga.rows", rows)
+          query = results.query.to_h
+          profile_info = results.profile_info.to_h
 
-        queue << event
+          # One event per metric
+          @metrics.each do |metric|
+            rows_for_this_metric = rows.clone.map do |row|
+              # Remove any rows that don't include this metric
+              new_row = row.clone
+              new_row[:metric] = row[:metrics].find { |m| m[:name] == metric }
+              new_row.delete(:metrics)
+              new_row
+            end
+
+            event = LogStash::Event.new
+            decorate(event)
+            # Populate Logstash event fields
+            event.set('ga.contains_sampled_data', results.contains_sampled_data?)
+            event.set('ga.query', query.to_json) if @store_query
+
+            event.set('ga.profile_info', profile_info) if @store_profile
+
+            if date == 'today'
+              event.set('ga.date', Time.now.strftime("%F"))
+            elsif date == 'yesterday'
+              event.set('ga.date', Time.at(Time.now.to_i - 86400).strftime("%F"))
+            elsif date.include?('daysAgo')
+              days_ago = date.sub('daysAgo', '').to_i
+              event.set('ga.date', Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F"))
+            else
+              event.set('ga.date', date)
+            end
+
+            event.set("ga.rows", rows_for_this_metric)
+            # Use date and metrics as ID to prevent duplicate entries in Elasticsearch
+            event.set('[@metadata][id]', event.get('ga.date') + metric)
+            queue << event
+          end
+        end
       end
 
       # If no interval was set, we're done
@@ -214,7 +222,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         :view_id => @view_id,
         :start_date => date,
         :end_date => date,
-        :metrics => @metrics.sort.join(','),
+        :metrics => @metrics.join(','),
         :output => 'json',
     }
     options.merge!({:dimensions => @dimensions.join(',')}) if (@dimensions and @dimensions.size)
