@@ -6,7 +6,7 @@ Forked from https://github.com/russorat/logstash-input-googleanalytics.git.
 
 ## Documentation
 
-Documentation can be seen in [the docs folder](https://github.com/DeimosCloud/logstash-input-google-analytics-daily/blob/master/docs/index.asciidoc). 
+Documentation can be seen in [the docs folder](https://github.com/DeimosCloud/logstash-input-google-analytics-daily/blob/master/docs/index.asciidoc) (for now). Hopefully, this moves to logstash-plugins repo soon, so it can be rendered properly on elastic.co, 
 
 ## Developing
 

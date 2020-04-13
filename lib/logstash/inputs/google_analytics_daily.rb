@@ -159,45 +159,49 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
           # Transform into proper format for one event per metric
           @metrics.each do |metric|
             rows_for_this_metric = rows.clone.map do |row|
-              # Remove any rows that don't include this metric
-              new_row = row.clone
+              new_row = {}
               new_row[:metric] = row[:metrics].find { |m| m[:name] == metric }
-              new_row.delete(:metrics)
-
-              # Remap dimensions into key: value
-              # Might lead to "mapping explosion", but otherwise aggregations are tough
-              new_row[:dimensions] = {}
-              row[:dimensions].each do |d|
-                dimension_name = d[:name].sub("ga:", '')
-                new_row[:dimensions][dimension_name] = d[:value]
-              end
-
+              new_row[:dimensions] = row[:dimensions]
               new_row
             end
 
-            event = LogStash::Event.new
-            decorate(event)
-            # Populate Logstash event fields
-            event.set('ga.contains_sampled_data', results.contains_sampled_data?)
-            event.set('ga.query', query.to_json) if @store_query
+            rows_for_this_metric.each do |row|
+              event = LogStash::Event.new
+              decorate(event)
+              # Populate Logstash event fields
+              event.set('ga.contains_sampled_data', results.contains_sampled_data?)
+              event.set('ga.query', query.to_json) if @store_query
 
-            event.set('ga.profile_info', profile_info) if @store_profile
+              event.set('ga.profile_info', profile_info) if @store_profile
 
-            if date == 'today'
-              event.set('ga.date', Time.now.strftime("%F"))
-            elsif date == 'yesterday'
-              event.set('ga.date', Time.at(Time.now.to_i - 86400).strftime("%F"))
-            elsif date.include?('daysAgo')
-              days_ago = date.sub('daysAgo', '').to_i
-              event.set('ga.date', Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F"))
-            else
-              event.set('ga.date', date)
+              if date == 'today'
+                event.set('ga.date', Time.now.strftime("%F"))
+              elsif date == 'yesterday'
+                event.set('ga.date', Time.at(Time.now.to_i - 86400).strftime("%F"))
+              elsif date.include?('daysAgo')
+                days_ago = date.sub('daysAgo', '').to_i
+                event.set('ga.date', Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F"))
+              else
+                event.set('ga.date', date)
+              end
+
+              event.set("ga.metric.name", metric)
+              event.set("ga.metric.value", row[:metric][:value])
+
+
+              # Remap dimensions into key: value
+              # Might lead to "mapping explosion", but otherwise aggregations are tough
+              joined_dimension_name = ''
+              row[:dimensions].each do |d|
+                dimension_name = d[:name].sub("ga:", '')
+                joined_dimension_name += dimension_name
+                event.set("ga.dimensions.#{dimension_name}", d[:value])
+              end
+
+              # Use date + metric + dimensions as ID to prevent duplicate entries in Elasticsearch
+              event.set('[@metadata][id]', event.get('ga.date') + metric + joined_dimension_name)
+              queue << event
             end
-
-            event.set("ga.rows", rows_for_this_metric)
-            # Use date and metrics as ID to prevent duplicate entries in Elasticsearch
-            event.set('[@metadata][id]', event.get('ga.date') + metric)
-            queue << event
           end
         end
       end
