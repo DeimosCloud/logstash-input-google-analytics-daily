@@ -27,9 +27,11 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
   # https://developers.google.com/analytics/devguides/reporting/core/v3/reference#ids
   config :view_id, :validate => :string, :required => true
 
-  # This plugin will only fetch reports for the specified dates
-  # In the format YYYY-MM-DD, or relative by using today, yesterday, or the NdaysAgo pattern
-  config :dates, :validate => :string, :list => true, :default => ['yesterday']
+  # This plugin will fetch daily reports for dates in the specified range
+  # In the format YYYY-MM-DD
+  config :start_date, :validate => :string, :required => true
+
+  config :end_date, :validate => :string, :required => true
 
   # The aggregated statistics for user activity to your site, such as clicks or pageviews.
   # Maximum of 10 metrics for any query
@@ -96,7 +98,10 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
 
       analytics = get_service
 
+      @dates = (Date.parse(@start_date)..Date.parse(@end_date))
+
       @dates.each do |date|
+        date = date.to_s
         options = get_request_parameters(date)
 
         results = analytics.get_ga_data(
@@ -171,19 +176,8 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
               # Populate Logstash event fields
               event.set('ga.contains_sampled_data', results.contains_sampled_data?)
               event.set('ga.query', query.to_json) if @store_query
-
               event.set('ga.profile_info', profile_info) if @store_profile
-
-              if date == 'today'
-                event.set('ga.date', Time.now.strftime("%F"))
-              elsif date == 'yesterday'
-                event.set('ga.date', Time.at(Time.now.to_i - 86400).strftime("%F"))
-              elsif date.include?('daysAgo')
-                days_ago = date.sub('daysAgo', '').to_i
-                event.set('ga.date', Time.at(Time.now.to_i - (days_ago * 86400)).strftime("%F"))
-              else
-                event.set('ga.date', date)
-              end
+              event.set('ga.date', date)
 
               event.set("ga.metric.name", metric)
               event.set("ga.metric.value", row[:metric][:value])
@@ -198,8 +192,6 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
                 event.set("ga.dimensions.#{dimension_name}", d[:value])
               end
 
-              # Use date + metric + dimensions as ID to prevent duplicate entries in Elasticsearch
-              event.set('[@metadata][id]', event.get('ga.date') + metric + joined_dimension_name)
               queue << event
             end
           end
