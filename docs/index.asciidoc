@@ -23,9 +23,9 @@ include::{include_path}/plugin_header.asciidoc[]
 
 This input plugin pulls daily reports from Google Analytics using the v3 Core Reporting API.
 
-It will generate one Logstash event per date per metric, with each event containing all the data for that date in its `ga.rows` property.
+It will generate one Logstash event per date-metric-dimensions data point, with each event containing all the data for that date in its `ga.rows` property.
 
-NOTE: The plugin will try to maintain a single event per date and group of metrics, in order to prevent inaccurate results when creating visualisations due to duplication. To achieve this, the event field `[@metadata][id]` is set to the date plus metric names. You'll need to add the https://www.elastic.co/guide/en/logstash/current/plugins-outputs-elasticsearch.html#plugins-outputs-elasticsearch-document_id[`document_id`] option in your Elasticsearch output to `"%{[@metadata][id]}"` to make use of this.
+NOTE: In order to prevent inaccurate results when creating visualisations due to duplication, it is recommended you delete the index where the data is stored whnever you change the dimensions being fetched., and alow the plugin to refetch the data.
 
 An example input configuration:
 
@@ -36,13 +36,14 @@ input {
     view_id => "ga:976488984"
     metrics =>  ["ga:users","ga:sessions"]
     key_file_path => "/etc/logstash/keyfile.json"
-    dates => ['yesterday', '2020-04-05']
+    start_date => '2020-04-05'
+    end_date => '2020-04-13'
     dimensions => ['ga:browser', 'ga:city']
   }
 }
 -----
 
-Here's what the generated event would look like:
+Here's what one of the generated events would look like:
 
 [source,json]
 -----
@@ -58,27 +59,12 @@ Here's what the generated event would look like:
 },
 "type":"google_analytics_daily",
 "@timestamp": "2020-04-08T11:06:38.281Z",
-"ga.rows": [
-  {
-    "dimensions": [
-      {
-        "name":"ga:browser",
-        "value":"Chrome"
-      },
-      {
-        "name":"ga:city",
-        "value":"Berea"
-      }
-    ],
-    "metric": {
-        "name":"ga:users",
-        "value":1.0
-      }
-  }
-],
-"ga.query": "{\"metrics\":[\"ga:users\",\"ga:sessions\"],\"dimensions\":\"ga:browser,ga:city\",\"ids\":\"ga:976488984\",\"max_results\":1000,\"start_date\":\"2020-04-06\",\"end_date\":\"2020-04-06\",\"start_index\":1}",
-"ga.date": "2020-04-07",
-"[@metadata][id]": "2020-04-07ga:sessions,ga:users",
+"ga.imensions.browser": "Chrome"
+"ga.imensions.city": "Berea"
+"ga.etric.name": "ga:users",
+"ga.etric.value": 1.0,,
+"ga.query": "{\"metrics\":[\"ga:users\",\"ga:sessions\"],\"dimensions\":\"ga:browser,ga:city\",\"ids\":\"ga:976488984\",\"max_results\":1000,\"start_date\":\"2020-04-05\",\"end_date\":\"2020-04-05\",\"start_index\":1}",
+"ga.date": "2020-04-05",
 "@version": "1"
 }
 -----
@@ -96,7 +82,8 @@ Many of these parameters map to the API request parameters described in https://
 |=======================================================================
 |Setting |Input type|Required
 | <<plugins-{type}s-{plugin}-view_id>> |<<string,string>>|Yes
-| <<plugins-{type}s-{plugin}-dates>> |<<array,array>>|No
+| <<plugins-{type}s-{plugin}-start_date>> |<<string,string>>|No
+| <<plugins-{type}s-{plugin}-end_date>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-metrics>> |<<array,array>>|Yes
 | <<plugins-{type}s-{plugin}-dimensions>> |<<array,array>>|No
 | <<plugins-{type}s-{plugin}-key_file_path>> |<<path,path>>|No
@@ -112,13 +99,19 @@ Many of these parameters map to the API request parameters described in https://
 
 View (profile) id, in the format 'ga:XXXX'.
 
-[id="plugins-{type}s-{plugin}-dates"]
-===== `dates`
+[id="plugins-{type}s-{plugin}-start_date"]
+===== `start_date`
 
-  * Value type is <<array,array>>
-  * Default value is `["yesterday"]`
+  * Value type is <<string,string>>
 
-List of dates to fetch reports for. Each date should be in the format YYYY-MM-DD, or a "today", "yesterday", or the NdaysAgo pattern (example: "5daysAgo").
+Date to begin fetching reports at. The date should be in the format YYYY-MM-DD (example: "2020-04-05"). The input will fetch daily reports for all dates betwen `start_date` and `end_date`
+
+[id="plugins-{type}s-{plugin}-end_date"]
+===== `end_date`
+
+  * Value type is <<string,string>>
+
+Date to stop fetching reports at. The date should be in the format YYYY-MM-DD (example: "2020-04-07").
 
 [id="plugins-{type}s-{plugin}-metrics"]
 ===== `metrics`
