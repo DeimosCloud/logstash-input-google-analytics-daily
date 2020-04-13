@@ -156,13 +156,22 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
           query = results.query.to_h
           profile_info = results.profile_info.to_h
 
-          # One event per metric
+          # Transform into proper format for one event per metric
           @metrics.each do |metric|
             rows_for_this_metric = rows.clone.map do |row|
               # Remove any rows that don't include this metric
               new_row = row.clone
               new_row[:metric] = row[:metrics].find { |m| m[:name] == metric }
               new_row.delete(:metrics)
+
+              # Remap dimensions into key: value
+              # Might lead to "mapping explosion", but otherwise aggregations are tough
+              new_row[:dimensions] = {}
+              row[:dimensions].each do |d|
+                dimension_name = d[:name].sub("ga:", '')
+                new_row[:dimensions][dimension_name] = d[:value]
+              end
+
               new_row
             end
 
