@@ -31,7 +31,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
   # In the format YYYY-MM-DD
   config :start_date, :validate => :string, :required => true
 
-  config :end_date, :validate => :string, :required => true
+  config :end_date, :validate => :string, :default => Time.now.to_s
 
   # The aggregated statistics for user activity to your site, such as clicks or pageviews.
   # Maximum of 10 metrics for any query
