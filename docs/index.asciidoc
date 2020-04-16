@@ -103,15 +103,15 @@ View (profile) id, in the format 'ga:XXXX'.
 ===== `start_date`
 
   * Value type is <<string,string>>
-  * Default value is today's date
+  * Default value is yesterday's date
 
-Date to begin fetching reports at. The date should be in the format YYYY-MM-DD (example: "2020-04-05"). The input will fetch daily reports for all dates betwen `start_date` and `end_date`. To avoid duplicate data, if you need data from the past, it's best to set `start_date` to the first date you need data from, and leave end_date as today. Then, when the run is completed (all data shows in Kibana), remove start_date so that it fetches only data for each day on that day.
+Date to begin fetching reports at. The date should be in the format YYYY-MM-DD (example: "2020-04-05"). The input will fetch daily reports for all dates betwen `start_date` and `end_date`. To avoid duplicate data, if you need data from the past, it's best to set `start_date` to the first date you need data from, and leave end_date as yesterday. Then, when the run is completed (all data shows in Kibana), remove start_date so that it fetches only data for the previous day each new day.
 
 [id="plugins-{type}s-{plugin}-end_date"]
 ===== `end_date`
 
   * Value type is <<string,string>>
-  * Default value is today's date
+  * Default value is yesterday's date
 
 Date to stop fetching reports at. The date should be in the format YYYY-MM-DD (example: "2020-04-07").
 

@@ -29,9 +29,9 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
 
   # This plugin will fetch daily reports for dates in the specified range
   # In the format YYYY-MM-DD
-  config :start_date, :validate => :string, :default => Date.today.to_s
+  config :start_date, :validate => :string, :default => (Date.today - 1).to_s
 
-  config :end_date, :validate => :string, :default => Date.today.to_s
+  config :end_date, :validate => :string, :default => (Date.today - 1).to_s
 
   # The aggregated statistics for user activity to your site, such as clicks or pageviews.
   # Maximum of 10 metrics for any query

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-input-google-analytics-daily'
-  s.version = '0.5.0'
+  s.version = '0.6.0'
   s.licenses = ['Apache License (2.0)']
   s.summary = "Logstash plugin to pull daily reports from Google Analytics."
   s.description = "Logstash plugin to pull daily reports from the Google Analytics v3 Core Reporting API. Install into Logstash using $LS_HOME/bin/logstash-plugin install logstash-input-google-analytics-daily."
