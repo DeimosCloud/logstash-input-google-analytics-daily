@@ -29,9 +29,9 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
 
   # This plugin will fetch daily reports for dates in the specified range
   # In the format YYYY-MM-DD
-  config :start_date, :validate => :string, :default => (Date.today - 1).to_s
+  config :start_date, :validate => :string, :default => nil
 
-  config :end_date, :validate => :string, :default => (Date.today - 1).to_s
+  config :end_date, :validate => :string, :default => nil
 
   # The aggregated statistics for user activity to your site, such as clicks or pageviews.
   # Maximum of 10 metrics for any query
@@ -83,7 +83,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
 
   # Interval to run the command. Value is in seconds. If no interval is given,
   # this plugin only fetches data once.
-  config :interval, :validate => :number, :required => false, :default => 60 * 60 * 24 # Daily
+  config :interval, :validate => :number, :required => false, :default => 60 * 60 # Daily
 
 
   public
@@ -94,11 +94,16 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
   def run(queue)
     # we abort the loop if stop? becomes true
     while !stop?
-      start_time = Time.now
+      plugin_start_time = Time.now
 
       analytics = get_service
 
-      @dates = (Date.parse(@start_date)..Date.parse(@end_date))
+      # Setting this here, not in the config at the top,
+      # because we need to reset the date for each new loop (new day)
+      start_date = @start_date || (Date.today - 1).to_s
+      end_date = @end_date || (Date.today - 1).to_s
+
+      @dates = (Date.parse(start_date)..Date.parse(end_date))
 
       @dates.each do |date|
         date = date.to_s
@@ -203,7 +208,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
         break
       else
         # Otherwise we sleep till the next run
-        time_lapsed = Time.now - start_time
+        time_lapsed = Time.now - plugin_start_time
         # Sleep for the remainder of the interval, or 0 if the duration ran
         # longer than the interval.
         time_to_sleep_for = [0, @interval - time_lapsed].max
@@ -214,6 +219,9 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
               :interval => @interval
           )
         else
+          @logger.info(
+              "Sleeping for #{@interval} seconds"
+          )
           Stud.stoppable_sleep(time_to_sleep_for) { stop? }
         end
       end
