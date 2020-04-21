@@ -83,7 +83,7 @@ class LogStash::Inputs::GoogleAnalyticsDaily < LogStash::Inputs::Base
 
   # Interval to run the command. Value is in seconds. If no interval is given,
   # this plugin only fetches data once.
-  config :interval, :validate => :number, :required => false, :default => 60 * 60 # Daily
+  config :interval, :validate => :number, :required => false, :default => 60 * 60 * 24 # Daily
 
 
   public
